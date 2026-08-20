@@ -33,6 +33,7 @@ namespace Catalyst.Internationalization.Extensions {
                 services.AddMemoryCache();
                 services.AddSingleton<LocalizationCache>();
                 services.AddHostedService<LocalizationHost>();
+                services.AddScoped<LocalizationService>();
                 return services;
             }
 

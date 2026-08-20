@@ -9,20 +9,21 @@
         <!-- Metadata -->
         <Title>CatalystUI Internationalization</Title>
         <VersionPrefix>1.0.0</VersionPrefix>
-        <VersionSuffix>alpha.1</VersionSuffix>
+        <VersionSuffix>beta.1</VersionSuffix>
         <Authors>CatalystUI LLC</Authors>
         <Copyright>Copyright © 2026 CatalystUI LLC</Copyright>
         <Description>Internationalization API provided by the CatalystUI library.</Description>
         <PackageTags>CatalystUI,internationalization</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
         <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
         <PackageProjectUrl>https://www.catalystui.org/</PackageProjectUrl>
         <RepositoryUrl>https://www.github.com/catalystui/lib-i18n-csharp/</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
-        
+
         <!-- Compatibility -->
         <VerifyReferenceAotCompatibility>true</VerifyReferenceAotCompatibility>
         <IsAotCompatible>true</IsAotCompatible>
-        
+
         <!-- Documentation -->
         <GenerateDocumentationFile>true</GenerateDocumentationFile>
 
@@ -30,11 +31,16 @@
         <IncludeSymbols>true</IncludeSymbols>
         <SymbolPackageFormat>snupkg</SymbolPackageFormat>
     </PropertyGroup>
-    
+
     <!-- NuGet Dependencies -->
     <ItemGroup>
       <PackageReference Include="Microsoft.Extensions.Caching.Memory" Version="10.0.11" />
       <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.11" />
+    </ItemGroup>
+
+    <!-- README -->
+    <ItemGroup>
+        <None Include="..\..\README.md" Pack="true" PackagePath="\" />
     </ItemGroup>
 
 </Project>

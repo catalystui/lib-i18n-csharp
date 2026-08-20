@@ -1,0 +1,70 @@
+name: Publish package
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Package version to publish (for example, 1.0.0-beta.2)
+        required: true
+        type: string
+      prerelease:
+        description: Mark the GitHub release as a prerelease
+        required: true
+        default: true
+        type: boolean
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    env:
+      PACKAGE_VERSION: ${{ inputs.version }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Restore dependencies
+        run: dotnet restore lib-i18n-csharp/lib-i18n-csharp.sln
+
+      - name: Run tests
+        run: dotnet test lib-i18n-csharp/lib-i18n-csharp.sln --configuration Release --no-restore
+
+      - name: Pack NuGet package
+        run: >-
+          dotnet pack
+          lib-i18n-csharp/CatalystUI.Internationalization/CatalystUI.Internationalization.csproj
+          --configuration Release
+          --no-restore
+          --output artifacts
+          -p:PackageVersion="${PACKAGE_VERSION}"
+
+      - name: Publish to NuGet.org
+        env:
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+        run: >-
+          dotnet nuget push
+          "artifacts/*.nupkg"
+          --api-key "${NUGET_API_KEY}"
+          --source https://api.nuget.org/v3/index.json
+          --skip-duplicate
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >-
+          gh release create
+          "v${PACKAGE_VERSION}"
+          artifacts/*.nupkg
+          artifacts/*.snupkg
+          --target "${{ github.sha }}"
+          --title "v${PACKAGE_VERSION}"
+          --generate-notes
+          ${{ inputs.prerelease && '--prerelease' || '' }}

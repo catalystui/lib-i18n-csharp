@@ -1,205 +1,162 @@
 # lib-i18n-csharp ![Static Badge](https://img.shields.io/badge/Powered_by-.NET-blue?style=flat-square&logo=sharp&logoColor=%23ffffff) ![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/catalystui/lib-i18n-csharp/dotnet.yml?branch=main&style=flat-square)
 
-`Catalyst.Internationalization` provides locale loading, in-memory caching, and fallback lookup for .NET applications. It is the internationalization library used by CatalystUI projects, but it does not depend on a particular UI framework or resource format.
+Internationalization support for .NET applications built around a simple provider model.
 
-The library handles the lifecycle around translations while leaving storage up to the application. A locale provider can read JSON files, query a database, call an API, or use any other source that fits the project.
+`Catalyst.Internationalization` handles locale selection, resource caching, fallback behavior, and integration with .NET hosting. It does not define where translations come from. Applications provide an `ILocaleProvider`, which can load resources from JSON, embedded files, a database, an API, or anywhere else that makes sense for the application.
 
-## Requirements
-
-- .NET 10 or later
-- A dependency injection container compatible with `Microsoft.Extensions.DependencyInjection`
-- An implementation of `ILocaleProvider`
+The package is designed for dependency injection and is marked as NativeAOT-compatible.
 
 ## Installation
 
-Install the package from NuGet:
-
 ```shell
-dotnet add package Catalyst.Internationalization --prerelease
+dotnet add package Catalyst.Internationalization
 ```
-
-The `--prerelease` option is required while the package is in beta. It can be removed once a stable release is available.
 
 ## Getting started
 
-### 1. Create a locale provider
-
-A provider loads the translations for one locale into its dictionary. The host copies that data into the cache after `LoadLocaleAsync` completes, so a scoped provider can be reused for each load.
-
-This example reads translations from JSON files stored under a `Locales` directory:
+A locale provider represents the resources for one loaded locale. Implement `ILocaleProvider`, populate the dictionary when `LoadLocaleAsync` is called, and register the provider with the service collection.
 
 ```csharp
-using System.Text.Json;
-
 using Catalyst.Internationalization;
 
-public sealed class JsonLocaleProvider : Dictionary<string, string>, ILocaleProvider {
+public sealed class AppLocaleProvider : Dictionary<string, string>, ILocaleProvider {
 
-    private readonly IWebHostEnvironment _environment;
-
-    public JsonLocaleProvider(IWebHostEnvironment environment) {
-        _environment = environment;
-    }
-
-    public async Task LoadLocaleAsync(
+    public Task LoadLocaleAsync(
         Locale locale,
         CancellationToken cancellationToken = default) {
-        string localeName = LocaleHelper.ToString(locale);
-        string path = Path.Combine(
-            _environment.ContentRootPath,
-            "Locales",
-            $"{localeName}.json");
-
-        await using FileStream stream = File.OpenRead(path);
-        Dictionary<string, string> translations =
-            await JsonSerializer.DeserializeAsync<Dictionary<string, string>>(
-                stream,
-                cancellationToken: cancellationToken)
-            ?? new Dictionary<string, string>();
 
         Clear();
-        foreach ((string key, string value) in translations) {
-            this[key] = value;
+
+        switch (locale) {
+            case Locale.en_US:
+                this["hello"] = "Hello!";
+                break;
+
+            case Locale.es_ES:
+                this["hello"] = "¡Hola!";
+                break;
         }
+
+        return Task.CompletedTask;
     }
+
 }
 ```
 
-A corresponding `Locales/en-US.json` file might look like this:
-
-```json
-{
-  "welcome.title": "Welcome",
-  "welcome.message": "Good to see you."
-}
-```
-
-Translation keys are ordinary strings. Dotted names are only a convention and have no special meaning to the library.
-
-### 2. Register the services
-
-Register the provider and internationalization services during application startup:
+Register the provider and Catalyst internationalization services:
 
 ```csharp
-using Catalyst.Internationalization;
 using Catalyst.Internationalization.Extensions;
 
-using Microsoft.Extensions.Options;
-
-builder.Services.AddSingleton(
-    Options.Create(new LocalizationOptions(
-        defaultLocale: Locale.en_US,
-        cacheDuration: TimeSpan.FromHours(1))));
-
-builder.Services.AddLocaleProvider<JsonLocaleProvider>();
-builder.Services.AddInternationalization();
+services.AddLocaleProvider<AppLocaleProvider>();
+services.AddInternationalization();
 ```
 
-The default locale is loaded when the application host starts. Other locales are loaded on first use and retained for the configured cache duration.
+`ILocaleProvider` is registered as a scoped service. The localization host creates a new scope when a locale needs to be loaded, snapshots the provider's resources into a `LocaleMap`, and caches that map for later requests.
 
-### 3. Look up a translation
+Only one locale provider is used. `AddLocaleProvider<T>()` uses first-registration-wins behavior, so later locale-provider registrations will not replace an existing provider.
 
-`LocalizationService` uses `CultureInfo.CurrentUICulture` for the primary locale and the configured default locale as its fallback:
+## Fetching localized strings
+
+`LocalizationService` uses `CultureInfo.CurrentUICulture` to select the locale automatically:
 
 ```csharp
-public sealed class WelcomeMessage {
+public sealed class ExampleService {
 
     private readonly LocalizationService _localization;
 
-    public WelcomeMessage(LocalizationService localization) {
+    public ExampleService(LocalizationService localization) {
         _localization = localization;
     }
 
-    public Task<string> GetTitleAsync(CancellationToken cancellationToken = default) {
-        return _localization.GetAsync("welcome.title", cancellationToken);
+    public async Task<string> GetGreetingAsync(
+        CancellationToken cancellationToken = default) {
+
+        return await _localization.GetAsync("hello", cancellationToken);
     }
+
 }
 ```
 
-For explicit control over the locale and fallback, inject and use `LocalizationHost` directly:
+If the current UI culture does not contain the requested key, the configured default locale is used as a fallback. If the key still cannot be found, the key itself is returned.
+
+For explicit locale selection or exception behavior, use `LocalizationHost.GetAsync` directly:
 
 ```csharp
-string title = await localizationHost.GetAsync(
-    locale: Locale.fr_FR,
-    key: "welcome.title",
+string value = await host.GetAsync(
+    Locale.es_ES,
+    "hello",
     fallback: Locale.en_US,
-    cancellationToken: cancellationToken);
+    throwExceptions: true,
+    cancellationToken);
 ```
 
-Lookup follows this order:
+## Locale providers
 
-1. Load the requested locale if it is not already cached.
-2. Return the value from the requested locale when the key exists.
-3. Try the fallback locale when one was supplied.
-4. Return the key itself when no translation is found.
-
-Pass `throwExceptions: true` to `LocalizationHost.GetAsync` when a missing key or provider failure should be treated as an error. Cancellation is always propagated.
-
-## Culture and locale conversion
-
-`LocaleHelper` converts between the library's `Locale` values, culture names, and `CultureInfo` instances:
+`ILocaleProvider` is intentionally small:
 
 ```csharp
-Locale locale = LocaleHelper.FromString("pt-BR");
-string name = LocaleHelper.ToString(Locale.zh_Hans);
-CultureInfo culture = LocaleHelper.ToCultureInfo(Locale.de_DE);
+public interface ILocaleProvider : IReadOnlyDictionary<string, string> {
+
+    Task LoadLocaleAsync(
+        Locale locale,
+        CancellationToken cancellationToken = default);
+
+}
 ```
 
-When an exact regional match is unavailable, `FromCultureInfo` falls back by language. For example, `en-CA` maps to `en-US`, and `pt-PT` maps to `pt-BR`. A culture whose language is not supported throws an `ArgumentException`.
+The provider owns resource loading. Catalyst only requires that, after `LoadLocaleAsync` completes, enumerating the provider returns the key/value resources for that locale.
 
-## Supported locales
+Because providers are scoped, implementations may safely keep state associated with the locale currently being loaded. The host copies that state into its own cached `LocaleMap` before the provider scope is disposed.
 
-| Language | Locale |
-| --- | --- |
-| Arabic (Saudi Arabia) | `ar-SA` |
-| Bengali (Bangladesh) | `bn-BD` |
-| Chinese (China) | `zh-CN` |
-| Chinese (Simplified) | `zh-Hans` |
-| Dutch (Netherlands) | `nl-NL` |
-| English (India) | `en-IN` |
-| English (United Kingdom) | `en-GB` |
-| English (United States) | `en-US` |
-| French (France) | `fr-FR` |
-| German (Germany) | `de-DE` |
-| Hindi (India) | `hi-IN` |
-| Indonesian (Indonesia) | `id-ID` |
-| Italian (Italy) | `it-IT` |
-| Japanese (Japan) | `ja-JP` |
-| Korean (South Korea) | `ko-KR` |
-| Persian (Iran) | `fa-IR` |
-| Polish (Poland) | `pl-PL` |
-| Portuguese (Brazil) | `pt-BR` |
-| Russian (Russia) | `ru-RU` |
-| Spanish (Mexico) | `es-MX` |
-| Spanish (Spain) | `es-ES` |
-| Tagalog (Philippines) | `tl-PH` |
-| Turkish (Turkey) | `tr-TR` |
-| Ukrainian (Ukraine) | `uk-UA` |
-| Urdu (Pakistan) | `ur-PK` |
-| Vietnamese (Vietnam) | `vi-VN` |
+## Caching
 
-## Main types
+Loaded locale maps are kept in an `IMemoryCache` through `LocalizationCache`.
 
-| Type | Purpose |
-| --- | --- |
-| `ILocaleProvider` | Loads key/value translations from application-defined storage. |
-| `LocalizationHost` | Loads locales, manages fallback lookup, and participates in the application host lifecycle. |
-| `LocalizationService` | Looks up strings using the current UI culture and configured default locale. |
-| `LocalizationCache` | Stores loaded locale maps for the configured duration. |
-| `LocalizationOptions` | Configures the default locale and cache duration. |
-| `LocaleHelper` | Converts between locale enum values, strings, and `CultureInfo`. |
-| `LocaleMap` | Represents the cached translation dictionary for a locale. |
+The default cache duration is one hour. When an entry expires, the next request for that locale causes the provider to load it again.
 
-## Building locally
+Provider failures are also cached temporarily as an empty locale map. This prevents a failing resource source from being hit repeatedly on every localization request. Cancellation is never swallowed and continues to propagate to the caller.
 
-From the repository root:
+## Locale selection
 
-```shell
-dotnet restore lib-i18n-csharp/lib-i18n-csharp.sln
-dotnet test lib-i18n-csharp/lib-i18n-csharp.sln
-dotnet pack lib-i18n-csharp/CatalystUI.Internationalization/CatalystUI.Internationalization.csproj
+`LocaleHelper` converts between Catalyst locales and .NET `CultureInfo` values:
+
+```csharp
+Locale locale = LocaleHelper.FromCultureInfo(CultureInfo.CurrentUICulture);
+CultureInfo culture = LocaleHelper.ToCultureInfo(Locale.en_US);
+```
+
+Exact culture names are preferred. When an exact locale is not available, Catalyst falls back by language where a mapping exists. For example, an unsupported English regional culture falls back to `en-US`.
+
+Catalyst currently defines locales for Arabic, Bengali, German, English, Spanish, Persian, French, Hindi, Indonesian, Italian, Japanese, Korean, Dutch, Polish, Portuguese, Russian, Tagalog/Filipino, Turkish, Ukrainian, Urdu, Vietnamese, and Chinese, with regional variants where defined by the `Locale` enum.
+
+## Defaults
+
+Unless configured otherwise:
+
+- Default locale: `en-US`
+- Cache duration: 1 hour
+- Missing key: returns the requested key
+- Provider lifetime: scoped
+- Locale maps: cached in memory
+
+## NativeAOT
+
+The package is built with NativeAOT compatibility enabled and verifies AOT compatibility of its references. Locale-provider registration is generic and preserves the public constructors required by .NET dependency injection.
+
+No assembly scanning or runtime provider discovery is required. Providers are registered explicitly:
+
+```csharp
+services.AddLocaleProvider<AppLocaleProvider>();
 ```
 
 ## License
 
-CatalystUI Internationalization is available under the [Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0).
+CatalystUI Internationalization is licensed under the [Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0).
+
+Copyright © 2026 CatalystUI LLC.
+
+## Links
+
+- [CatalystUI](https://www.catalystui.org/)
+- [Source repository](https://www.github.com/catalystui/lib-i18n-csharp/)

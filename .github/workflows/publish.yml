@@ -61,7 +61,7 @@ jobs:
         id: nuget-login
         uses: NuGet/login@v1
         with:
-          user: CatalystUI
+          user: FireController1847
 
       - name: Publish to NuGet.org
         if: inputs.destination == 'NuGet and GitHub' || inputs.destination == 'NuGet only'

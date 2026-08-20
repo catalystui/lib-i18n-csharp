@@ -1,3 +1,4 @@
+using System;
 using System.Diagnostics.CodeAnalysis;
 
 using Microsoft.Extensions.DependencyInjection;
@@ -28,11 +29,13 @@ namespace Catalyst.Internationalization.Extensions {
             /// Adds internationalization services to the service collection.
             /// </summary>
             /// <returns>The service collection.</returns>
-            public IServiceCollection AddInternationalization() {
+            public IServiceCollection AddInternationalization(Action<LocalizationOptions>? configure = null) {
                 services.AddOptions<LocalizationOptions>();
+                if (configure != null) services.Configure(configure);
                 services.AddMemoryCache();
                 services.AddSingleton<LocalizationCache>();
-                services.AddHostedService<LocalizationHost>();
+                services.AddSingleton<LocalizationHost>();
+                services.AddHostedService(provider => provider.GetRequiredService<LocalizationHost>());
                 services.AddScoped<LocalizationService>();
                 return services;
             }

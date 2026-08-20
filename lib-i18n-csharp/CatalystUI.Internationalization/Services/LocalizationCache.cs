@@ -2,6 +2,7 @@ using System;
 using System.Diagnostics.CodeAnalysis;
 
 using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Options;
 
 // ReSharper disable once CheckNamespace
 namespace Catalyst.Internationalization {
@@ -17,8 +18,8 @@ namespace Catalyst.Internationalization {
         /// <summary>
         /// Constructs a new <see cref="LocalizationCache"/>.
         /// </summary>
-        public LocalizationCache(LocalizationOptions options, IMemoryCache cache) {
-            _options = options;
+        public LocalizationCache(IOptions<LocalizationOptions> options, IMemoryCache cache) {
+            _options = options.Value;
             _cache = cache;
         }
 

@@ -8,7 +8,8 @@ namespace Catalyst.Internationalization.Extensions {
     /// <summary>
     /// Extensions for the <see cref="ServiceCollection"/> class.
     /// </summary>
-    public static class ServiceCollectionExtensions {
+    // ReSharper disable once InconsistentNaming
+    public static class IServiceCollectionExtensions {
 
         /// <param name="services">The service collection to add the services to.</param>
         extension(IServiceCollection services) {
@@ -23,7 +24,17 @@ namespace Catalyst.Internationalization.Extensions {
                 return services;
             }
 
-            // TODO: add main register
+            /// <summary>
+            /// Adds internationalization services to the service collection.
+            /// </summary>
+            /// <returns>The service collection.</returns>
+            public IServiceCollection AddInternationalization() {
+                services.AddOptions<LocalizationOptions>();
+                services.AddMemoryCache();
+                services.AddSingleton<LocalizationCache>();
+                services.AddHostedService<LocalizationHost>();
+                return services;
+            }
 
         }
 

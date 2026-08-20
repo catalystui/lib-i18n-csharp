@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Options;
 
 // ReSharper disable once CheckNamespace
 namespace Catalyst.Internationalization {
@@ -26,8 +27,8 @@ namespace Catalyst.Internationalization {
         /// <summary>
         /// Constructs a new <see cref="LocalizationHost"/>.
         /// </summary>
-        public LocalizationHost(LocalizationOptions options, LocalizationCache cache, IServiceScopeFactory scopeFactory) {
-            _options = options;
+        public LocalizationHost(IOptions<LocalizationOptions> options, LocalizationCache cache, IServiceScopeFactory scopeFactory) {
+            _options = options.Value;
             _cache = cache;
             _scopeFactory = scopeFactory;
         }

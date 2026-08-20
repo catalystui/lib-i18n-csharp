@@ -16,6 +16,7 @@
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
         <PackageProjectUrl>https://www.catalystui.org/</PackageProjectUrl>
+        <PackageIconUrl>https://catalystui.org/favicon.png</PackageIconUrl>
         <RepositoryUrl>https://www.github.com/catalystui/lib-i18n-csharp/</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
 

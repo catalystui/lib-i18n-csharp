@@ -16,7 +16,7 @@
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
         <PackageProjectUrl>https://www.catalystui.org/</PackageProjectUrl>
-        <PackageIconUrl>https://catalystui.org/favicon.png</PackageIconUrl>
+        <PackageIcon>icon.png</PackageIcon>
         <RepositoryUrl>https://www.github.com/catalystui/lib-i18n-csharp/</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
 
@@ -38,9 +38,10 @@
       <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.11" />
     </ItemGroup>
 
-    <!-- README -->
+    <!-- Package Assets -->
     <ItemGroup>
         <None Include="..\..\README.md" Pack="true" PackagePath="\" />
+        <None Include="..\..\icon.png" Pack="true" PackagePath="\" />
     </ItemGroup>
 
 </Project>
